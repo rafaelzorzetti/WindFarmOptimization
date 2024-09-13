@@ -13,11 +13,22 @@ class InterferenciaJensen:
         delta_V = U * (1 - np.sqrt(1 - C_t)) * (D / (D + 2 * self.k * X))**2
         return delta_V
 
-    def calcular_wake(self, X, Y, x_turbine, y_turbine, U, C_t, D):
-        # Calcula a redução de velocidade delta V em uma grade de pontos X e Y
-        dist_x = X - x_turbine
-        dist_y = Y - y_turbine
+    def calcular_wake(self, X, Y, x_turbina, y_turbina, U, C_t, D, wd):
+        # Converte a direção do vento de graus para radianos e ajusta para a convenção matemática
+        theta = np.radians(270 - wd)
+
+        # Calcula as distâncias relativas à turbina
+        delta_x = X - x_turbina
+        delta_y = Y - y_turbina
+
+        # Rotaciona as coordenadas para alinhar com a direção do vento
+        dist_x = delta_x * np.cos(theta) + delta_y * np.sin(theta)
+        dist_y = -delta_x * np.sin(theta) + delta_y * np.cos(theta)
+
+        # Calcula a largura da esteira
         wake_width = D + 2 * self.k * dist_x
+
+        # Determina os pontos que estão dentro da esteira
         in_wake = (dist_x > 0) & (np.abs(dist_y) <= wake_width / 2)
 
         # Aplica a equação de Jensen para calcular a redução de velocidade
@@ -25,14 +36,26 @@ class InterferenciaJensen:
         U_wake = U - delta_V  # Velocidade na região da esteira
         return U_wake, in_wake
 
-    def aplicar_wake(self, X, Y, positions, U, C_t, D):
-        # Inicializa o campo de vento com a velocidade do vento livre
-        U_field = U * np.ones_like(X)
+    def aplicar_wake(self, X, Y, positions, wind_scenarios, C_t, D):
+        # Inicializa o campo de vento com zeros
+        U_field = np.zeros_like(X)
 
-        # Aplica o efeito da esteira de cada turbina
-        for pos in positions:
-            U_wake, in_wake = self.calcular_wake(X, Y, pos[0], pos[1], U, C_t, D)
-            U_field[in_wake] = np.minimum(U_field[in_wake], U_wake)
+        # Loop sobre os cenários de vento
+        for scenario in wind_scenarios:
+            U = scenario['U']
+            wd = scenario['wd']
+            prob = scenario['prob']
+
+            # Inicializa o campo de vento para este cenário
+            U_scenario = U * np.ones_like(X)
+
+            # Aplica o efeito da esteira de cada turbina
+            for pos in positions:
+                U_wake, in_wake = self.calcular_wake(X, Y, pos[0], pos[1], U, C_t, D, wd)
+                U_scenario[in_wake] = np.minimum(U_scenario[in_wake], U_wake)
+
+            # Acumula o campo de vento ponderado pela probabilidade
+            U_field += prob * U_scenario
 
         return U_field
 
@@ -43,14 +66,14 @@ class InterferenciaJensen:
 
     def plotar_efeito_esteira(self, X, Y, U_field, positions, D):
         # Plota o campo de vento com as esteiras
-        plt.figure(figsize=(10, 7.68))
+        plt.figure(figsize=(10, 7))
         plt.contourf(X, Y, U_field, levels=np.linspace(0, U_field.max(), 256), cmap='Blues_r')
         plt.colorbar(label='Velocidade do Vento (m/s)')
         plt.axis('equal')
 
         # Adiciona círculos com borda vermelha e interior branco para representar as turbinas
         for pos in positions:
-            turbine_circle = plt.Circle((pos[0], pos[1]), D / 2, edgecolor='red', facecolor='white', linewidth=2)
+            turbine_circle = plt.Circle((pos[0], pos[1]), D / 2, edgecolor='black', facecolor='white', linewidth=2)
             plt.gca().add_patch(turbine_circle)
 
         plt.title('Efeito Esteira')
