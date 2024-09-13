@@ -1,6 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 class InterferenciaJensen:
     def __init__(self, k, power_curve, wind_speeds):
@@ -65,19 +66,30 @@ class InterferenciaJensen:
         return potencia
 
     def plotar_efeito_esteira(self, X, Y, U_field, positions, D):
-        # Plota o campo de vento com as esteiras
+        # Cria um colormap personalizado
+        colors = [
+            (0.0, 'white'),         # Velocidade mínima (vermelho)
+            (0.5, 'lightblue'),   # Velocidade média (azul claro)
+            (1.0, 'darkblue')     # Velocidade máxima (azul escuro)
+        ]
+        custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', colors)
+
         plt.figure(figsize=(10, 7))
-        plt.contourf(X, Y, U_field, levels=np.linspace(0, U_field.max(), 256), cmap='Blues_r')
+        # Definir os limites dos eixos X e Y
+        plt.xlim([0, 4000])  # Limite do eixo X (ajustado conforme necessário)
+        plt.ylim([0, 4000])  # Limite ajustado do eixo Y para focar nas turbinas
+        plt.contourf(X, Y, U_field, levels=np.linspace(5, U_field.max(), 256), cmap=custom_cmap)
         plt.colorbar(label='Velocidade do Vento (m/s)')
         plt.axis('equal')
 
-        # Adiciona círculos com borda vermelha e interior branco para representar as turbinas
+        # Adiciona círculos para representar as turbinas em vermelho
         for pos in positions:
-            turbine_circle = plt.Circle((pos[0], pos[1]), D / 2, edgecolor='black', facecolor='white', linewidth=2)
+            turbine_circle = plt.Circle((pos[0], pos[1]), D / 2, edgecolor='red', facecolor='red', linewidth=2)
             plt.gca().add_patch(turbine_circle)
-
+        
+        # Defina os limites dos eixos X e Y para garantir que todo o parque eólico seja visualizado
         plt.title('Efeito Esteira')
         plt.xlabel('Eixo X (m)')
         plt.ylabel('Eixo Y (m)')
-        plt.grid(True)
+        plt.grid(False)
         plt.show()
