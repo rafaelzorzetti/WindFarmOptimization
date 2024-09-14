@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from scipy.interpolate import RegularGridInterpolator
 
 class InterferenciaJensen:
     def __init__(self, k, power_curve, wind_speeds):
@@ -64,7 +65,27 @@ class InterferenciaJensen:
         # Interpola a curva de potência para obter a potência na nova velocidade do vento
         potencia = np.interp(U_turbina, self.wind_speeds, self.power_curve)
         return potencia
+    
+    def calcular_wi(self, positions, U_field, X, Y):
+        wi = {}
 
+        # Criar interpolador para o campo de vento
+        interpolador = RegularGridInterpolator((Y[:, 0], X[0, :]), U_field)
+
+        for i, (x, y) in enumerate(positions):
+            # Interpola o valor de U_field na posição da turbina (x, y)
+            U_i = interpolador([y, x])  # Nota: scipy usa (y, x) para coordenadas 2D
+
+            # Calcula a potência máxima (sem interferência) e a potência com interferência
+            U_max = np.max(U_field)
+            potencia_maxima = np.interp(U_max, self.wind_speeds, self.power_curve)
+            potencia_com_interferencia = np.interp(U_i, self.wind_speeds, self.power_curve)
+
+            # A interferência máxima w_i é a diferença entre a potência máxima e a potência com interferência
+            wi[i] = potencia_maxima - potencia_com_interferencia
+
+        return wi   
+    
     def plotar_efeito_esteira(self, X, Y, U_field, positions, D):
         # Cria um colormap personalizado
         colors = [
@@ -93,3 +114,5 @@ class InterferenciaJensen:
         plt.ylabel('Eixo Y (m)')
         plt.grid(False)
         plt.show()
+    
+     
